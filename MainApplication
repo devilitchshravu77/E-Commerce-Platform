@@ -1,0 +1,217 @@
+package com.ecommerce.main;
+
+import com.ecommerce.dao.OrderDAO;
+import com.ecommerce.dao.ProductDAO;
+import com.ecommerce.dao.UserDAO;
+import com.ecommerce.model.Product;
+import com.ecommerce.model.User;
+
+import java.util.List;
+import java.util.Scanner;
+
+public class ECommerceApp {
+
+    private static Scanner sc = new Scanner(System.in);
+    private static UserDAO userDAO = new UserDAO();
+    private static ProductDAO productDAO = new ProductDAO();
+    private static OrderDAO orderDAO = new OrderDAO();
+
+    public static void main(String[] args) {
+        while (true) {
+            System.out.println("==== Online E-Commerce Platform ====");
+            System.out.println("1. Register");
+            System.out.println("2. Login");
+            System.out.println("3. Exit");
+            System.out.print("Choose option: ");
+
+            int choice = Integer.parseInt(sc.nextLine());
+
+            switch (choice) {
+                case 1:
+                    registerMenu();
+                    break;
+                case 2:
+                    loginMenu();
+                    break;
+                case 3:
+                    System.out.println("Thank you!");
+                    System.exit(0);
+                default:
+                    System.out.println("Invalid choice!");
+            }
+        }
+    }
+
+    private static void registerMenu() {
+        System.out.println("=== Register ===");
+        System.out.print("Name: ");
+        String name = sc.nextLine();
+        System.out.print("Email: ");
+        String email = sc.nextLine();
+        System.out.print("Password: ");
+        String password = sc.nextLine();
+        System.out.print("Role (BUYER / SELLER): ");
+        String role = sc.nextLine().toUpperCase();
+
+        User user = new User(name, email, password, role);
+        boolean success = userDAO.registerUser(user);
+        if (success) {
+            System.out.println("Registration successful!");
+        } else {
+            System.out.println("Registration failed!");
+        }
+    }
+
+    private static void loginMenu() {
+        System.out.println("=== Login ===");
+        System.out.print("Email: ");
+        String email = sc.nextLine();
+        System.out.print("Password: ");
+        String password = sc.nextLine();
+
+        User user = userDAO.login(email, password);
+        if (user == null) {
+            System.out.println("Invalid credentials!");
+            return;
+        }
+
+        System.out.println("Welcome, " + user.getName() + " (" + user.getRole() + ")");
+
+        switch (user.getRole()) {
+            case "BUYER":
+                buyerMenu(user);
+                break;
+            case "SELLER":
+                sellerMenu(user);
+                break;
+            case "ADMIN":
+                adminMenu(user);
+                break;
+            default:
+                System.out.println("Unknown role!");
+        }
+    }
+
+    // BUYER MENU
+    private static void buyerMenu(User user) {
+        while (true) {
+            System.out.println("=== Buyer Menu ===");
+            System.out.println("1. View Products");
+            System.out.println("2. Place Order");
+            System.out.println("3. Logout");
+            System.out.print("Choose option: ");
+
+            int choice = Integer.parseInt(sc.nextLine());
+
+            switch (choice) {
+                case 1:
+                    listAllProducts();
+                    break;
+                case 2:
+                    placeOrder(user);
+                    break;
+                case 3:
+                    return;
+                default:
+                    System.out.println("Invalid choice!");
+            }
+        }
+    }
+
+    // SELLER MENU
+    private static void sellerMenu(User user) {
+        while (true) {
+            System.out.println("=== Seller Menu ===");
+            System.out.println("1. Add Product");
+            System.out.println("2. View All Products");
+            System.out.println("3. Logout");
+            System.out.print("Choose option: ");
+
+            int choice = Integer.parseInt(sc.nextLine());
+
+            switch (choice) {
+                case 1:
+                    addProduct(user);
+                    break;
+                case 2:
+                    listAllProducts();
+                    break;
+                case 3:
+                    return;
+                default:
+                    System.out.println("Invalid choice!");
+            }
+        }
+    }
+
+    // ADMIN MENU (simple)
+    private static void adminMenu(User user) {
+        while (true) {
+            System.out.println("=== Admin Menu ===");
+            System.out.println("1. View All Products");
+            System.out.println("2. Logout");
+            System.out.print("Choose option: ");
+
+            int choice = Integer.parseInt(sc.nextLine());
+
+            switch (choice) {
+                case 1:
+                    listAllProducts();
+                    break;
+                case 2:
+                    return;
+                default:
+                    System.out.println("Invalid choice!");
+            }
+        }
+    }
+
+    private static void listAllProducts() {
+        List<Product> products = productDAO.getAllProducts();
+        System.out.println("=== Product List ===");
+        for (Product p : products) {
+            System.out.println("ID: " + p.getId() +
+                    ", Name: " + p.getName() +
+                    ", Price: " + p.getPrice() +
+                    ", Qty: " + p.getQuantity());
+        }
+        if (products.isEmpty()) {
+            System.out.println("No products found!");
+        }
+    }
+
+    private static void addProduct(User seller) {
+        System.out.println("=== Add Product ===");
+        System.out.print("Product Name: ");
+        String name = sc.nextLine();
+        System.out.print("Description: ");
+        String desc = sc.nextLine();
+        System.out.print("Price: ");
+        double price = Double.parseDouble(sc.nextLine());
+        System.out.print("Quantity: ");
+        int qty = Integer.parseInt(sc.nextLine());
+
+        Product p = new Product(seller.getId(), name, desc, price, qty);
+        boolean success = productDAO.addProduct(p);
+        if (success) {
+            System.out.println("Product added successfully!");
+        } else {
+            System.out.println("Failed to add product!");
+        }
+    }
+
+    private static void placeOrder(User buyer) {
+        listAllProducts();
+        System.out.print("Enter Product ID to buy: ");
+        int productId = Integer.parseInt(sc.nextLine());
+        System.out.print("Enter quantity: ");
+        int qty = Integer.parseInt(sc.nextLine());
+
+        boolean success = orderDAO.placeOrder(buyer.getId(), productId, qty);
+        if (success) {
+            System.out.println("Order placed successfully!");
+        } else {
+            System.out.println("Order failed!");
+        }
+    }
+}
