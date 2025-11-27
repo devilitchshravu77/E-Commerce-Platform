@@ -1,0 +1,88 @@
+package com.ecommerce.dao;
+
+import com.ecommerce.util.DBConnection;
+
+import java.sql.*;
+
+public class OrderDAO {
+
+    // Simple: ek order me ek hi product
+    public boolean placeOrder(int buyerId, int productId, int quantity) {
+        String insertOrderSQL = "INSERT INTO orders(buyer_id, total_amount, status) VALUES (?, ?, ?)";
+        String insertItemSQL = "INSERT INTO order_items(order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)";
+        String getProductSQL = "SELECT price, quantity FROM products WHERE id = ?";
+        String updateQtySQL = "UPDATE products SET quantity = quantity - ? WHERE id = ?";
+
+        Connection conn = null;
+        try {
+            conn = DBConnection.getConnection();
+            conn.setAutoCommit(false); // transaction start
+
+            // product price & stock
+            double price;
+            int availableQty;
+
+            try (PreparedStatement psProd = conn.prepareStatement(getProductSQL)) {
+                psProd.setInt(1, productId);
+                ResultSet rs = psProd.executeQuery();
+                if (!rs.next()) {
+                    System.out.println("Product not found");
+                    return false;
+                }
+                price = rs.getDouble("price");
+                availableQty = rs.getInt("quantity");
+            }
+
+            if (availableQty < quantity) {
+                System.out.println("Not enough stock!");
+                return false;
+            }
+
+            double totalAmount = price * quantity;
+
+            int orderId;
+            try (PreparedStatement psOrder = conn.prepareStatement(insertOrderSQL, Statement.RETURN_GENERATED_KEYS)) {
+                psOrder.setInt(1, buyerId);
+                psOrder.setDouble(2, totalAmount);
+                psOrder.setString(3, "PLACED");
+                psOrder.executeUpdate();
+
+                ResultSet keys = psOrder.getGeneratedKeys();
+                if (keys.next()) {
+                    orderId = keys.getInt(1);
+                } else {
+                    conn.rollback();
+                    return false;
+                }
+            }
+
+            try (PreparedStatement psItem = conn.prepareStatement(insertItemSQL)) {
+                psItem.setInt(1, orderId);
+                psItem.setInt(2, productId);
+                psItem.setInt(3, quantity);
+                psItem.setDouble(4, price);
+                psItem.executeUpdate();
+            }
+
+            try (PreparedStatement psUpdate = conn.prepareStatement(updateQtySQL)) {
+                psUpdate.setInt(1, quantity);
+                psUpdate.setInt(2, productId);
+                psUpdate.executeUpdate();
+            }
+
+            conn.commit();
+            return true;
+
+        } catch (SQLException e) {
+            System.out.println("Error in placeOrder: " + e.getMessage());
+            if (conn != null) {
+                try { conn.rollback(); } catch (SQLException ex) { }
+            }
+            return false;
+        } finally {
+            if (conn != null) {
+                try { conn.setAutoCommit(true); conn.close(); } catch (SQLException e) { }
+            }
+        }
+    }
+}
